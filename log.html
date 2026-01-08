@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Log Watcher</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #d4d4d4;
+            --log-bg: #000000;
+            --accent: #007acc;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        #status {
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #333;
+        }
+
+        #status.connected {
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        #status.disconnected {
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        #log-container {
+            flex-grow: 1;
+            background-color: var(--log-bg);
+            border: 1px solid #333;
+            padding: 15px;
+            overflow-y: auto;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #222;
+        }
+
+        .new-entry {
+            animation: flash 1s ease-out;
+        }
+
+        @keyframes flash {
+            0% {
+                background-color: #333;
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Remote Log Watcher (WebSocket)</h1>
+        <div id="status" class="disconnected">Disconnected</div>
+    </header>
+
+    <div id="log-container"></div>
+
+    <script>
+        const logContainer = document.getElementById('log-container');
+        const statusDiv = document.getElementById('status');
+        let socket;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/log`;
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'connected';
+                console.log('WebSocket connected');
+            };
+
+            socket.onmessage = (event) => {
+                const line = event.data;
+
+                const div = document.createElement('div');
+                div.className = 'log-entry new-entry';
+                div.textContent = line;
+                logContainer.appendChild(div);
+
+                // Auto-scroll to bottom
+                logContainer.scrollTop = logContainer.scrollHeight;
+            };
+
+            socket.onclose = (event) => {
+                console.log('WebSocket closed:', event);
+                statusDiv.textContent = 'Disconnected (Retrying...)';
+                statusDiv.className = 'disconnected';
+                // Retry after 3 seconds
+                setTimeout(connect, 3000);
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Initialize connection
+        connect();
+
+    </script>
+
+</body>
+
+</html>
